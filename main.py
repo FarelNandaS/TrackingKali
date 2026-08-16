@@ -5,6 +5,11 @@ import cv2
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+from rich.console import Console
+from rich.text import Text
+from rich.panel import Panel
+
+console = Console()
 
 img_peace = cv2.imread('img/peace.png')
 img_angry = cv2.imread('img/angry.png')
@@ -15,6 +20,11 @@ options = vision.HandLandmarkerOptions(
     running_mode=vision.RunningMode.VIDEO,
     num_hands=2
 )
+
+LOGO_ART = r"""[bold green]
+▀█▀ █▀█ ▄▀█ █▄▀ █ █▄ █ █▀▀ █▄▀ ▄▀█ █   █
+ █  █▀▄ █▀█ █ █ █ █ ▀█ █▄█ █ █ █▀█ █▄▄ █
+[/bold green]"""
 
 HANDS_CONNECTIONS = [
     (0, 1), (1, 2), (2, 3), (3, 4),
@@ -133,11 +143,13 @@ def mode_count_finger(frame, detection_result):
 def run_camera(mode):
     cap = cv2.VideoCapture(0)
 
+    console.print("[bold yellow]Membuka Webcam... Tekan 'q' pada jendela kamera untuk kembali ke menu.[/bold yellow]")
+
     with vision.HandLandmarker.create_from_options(options) as detector:
         while cap.isOpened():
             success, frame = cap.read()
             if not success:
-                print('Kamera Tidak Ditemukan')
+                print('[bold red]Kamera Tidak Ditemukan[/bold red]')
                 break
 
             frame = cv2.flip(frame, 1)
@@ -170,17 +182,19 @@ def main_menu():
         while True:
             os.system('cls' if os.name == 'nt' else 'clear')
 
-            print('\n' + '=' * 45)
-            print("🖐 PROGRAM FINGER TRACKING PYTHON 🖐")
-            print('=' * 45)
-            print("Pilih fitur yang ingin dijalankan:")
-            print(" [1] Basic Finger Tracking (Landmark jari saja)")
-            print(" [2] Gesture Detector (Tampilkan Gambar/Stiker)")
-            print(" [3] Finger Count (Menghitung jari)")
-            print(" [0] Keluar Dari Program")
-            print('=' * 45)
+            console.print(LOGO_ART)
 
-            pilihan = input("Masukan Pilihan Anda: ").strip()
+            menu_text = (
+                "[cyan]Pilih fitur yang ingin dijalankan:[/cyan] \n"
+                "[cyan] [1] Basic Finger Tracking (Landmark jari saja)[/cyan] \n"
+                "[cyan] [2] Gesture Detector (Tampilkan Gambar/Stiker)[/cyan] \n"
+                "[cyan] [3] Finger Count (Menghitung jari)[/cyan] \n"
+                "[cyan] [0] Keluar Dari Program[/cyan] \n"
+            )
+
+            console.print(Panel(menu_text, title="[bold green]🖐 TRACKING KALI SYSTEM 🖐[/bold green]", subtitle="[dim]Gunakan Angka untuk Memilih[/dim]", border_style="green", width=60))
+
+            pilihan = console.input("[bold yellow]Masukan Pilihan Anda: [/bold yellow]").strip()
 
             if pilihan == '1':
                 run_camera(mode='1')
@@ -190,14 +204,15 @@ def main_menu():
                 run_camera(mode='3')
             elif pilihan == '0':
                 os.system('cls' if os.name == 'nt' else 'clear')
-                print('\nTerimakasih telah mengunakan program ini! Sampai Jumpa 🖐')
+                console.print('\n[bold green]Terimakasih telah mengunakan program ini! Sampai Jumpa 🖐[/bold green]')
                 sys.exit()
             else:
                 os.system('cls' if os.name == 'nt' else 'clear')
-                print('\n[!] Pilihan tidak valid. Silahkan masukan angka yang valid.')
+                console.print('\n[bold yellow][!] Pilihan tidak valid. Silahkan masukan angka yang valid.[/bold yellow]')
+                time.sleep(2)
     except KeyboardInterrupt:
         os.system('cls' if os.name == 'nt' else 'clear')
-        print('\nTerimakasih telah mengunakan program ini! Sampai Jumpa 🖐')
+        console.print('\n[bold green]Terimakasih telah mengunakan program ini! Sampai Jumpa 🖐[/bold green]')
         sys.exit()
 
 if __name__ == "__main__":
