@@ -1,4 +1,5 @@
 import sys
+import os
 import time
 import cv2
 import mediapipe as mp
@@ -17,7 +18,7 @@ options = vision.HandLandmarkerOptions(
 
 HANDS_CONNECTIONS = [
     (0, 1), (1, 2), (2, 3), (3, 4),
-    (0, 5), (5, 6), (6, 7), (7, 8),
+    (2, 5), (5, 6), (6, 7), (7, 8),
     (5, 9), (9, 10), (10, 11), (11, 12),
     (9, 13), (13, 14), (14, 15), (15, 16),
     (13, 17), (17, 18), (18, 19), (19, 20), (0, 17)
@@ -39,14 +40,26 @@ def place_image_direct(backround, overlay, x, y, size=(150, 150)):
     backround[y1:y2, x1:x2] = overlay_resized
     return backround
 
-def check_open_finger(landmarks):
+def check_open_finger(landmarks, hand_label):
+    status = []
+
     tips_ids = [8, 12, 16, 20]
     pips_ids = [7, 11, 15, 19]
 
-    status = []
+    if hand_label:
+        if hand_label == 'Right':
+            if landmarks[4].x >= landmarks[2].x:
+                status.append(1)
+            else:
+                status.append(0)
+        else:
+            if landmarks[4].x <= landmarks[2].x:
+                status.append(1)
+            else:
+                status.append(0)
 
     for tip, pip in zip(tips_ids, pips_ids):
-        if landmarks[tip].y < landmarks[pip].y:
+        if landmarks[tip].y <= landmarks[pip].y:
             status.append(1)
         else:
             status.append(0)
@@ -93,6 +106,30 @@ def mode_gesture_image(frame, detection_result):
 
     return frame
 
+def mode_count_finger(frame, detection_result):
+    frame = mode_besic_image(frame, detection_result)
+
+    if not detection_result.hand_landmarks:
+        return frame
+
+    total_finger_all = 0
+
+    if detection_result.hand_landmarks:
+        for idx, hand_landmarks in enumerate(detection_result.hand_landmarks):
+            hand_label = "Right"
+            if detection_result.handedness and idx < len(detection_result.handedness):
+                hand_label = detection_result.handedness[idx][0].category_name
+
+            finger_status = check_open_finger(hand_landmarks, hand_label)
+            total_finger = finger_status.count(1)
+            total_finger_all += total_finger
+
+    h, w, _ = frame.shape
+
+    cv2.putText(frame, str(total_finger_all), (40, 60), cv2.FONT_HERSHEY_COMPLEX, 2, (0, 255, 0), 4)
+
+    return frame
+
 def run_camera(mode):
     cap = cv2.VideoCapture(0)
 
@@ -117,6 +154,8 @@ def run_camera(mode):
                 frame = mode_besic_image(frame, detection_result)
             elif mode == '2':
                 frame = mode_gesture_image(frame, detection_result)
+            elif mode == '3':
+                frame = mode_count_finger(frame, detection_result)
 
             cv2.imshow("Finger Tracker", frame)
 
@@ -127,27 +166,39 @@ def run_camera(mode):
     cv2.destroyAllWindows()
 
 def main_menu():
-    while True:
-        print('\n' + '=' * 45)
-        print("🖐 PROGRAM FINGER TRACKING PYTHON 🖐")
-        print('=' * 45)
-        print("Pilih fitur yang ingin dijalankan:")
-        print(" [1] Basic Finger Tracking (Landmark jari saja)")
-        print(" [2] Gesture Detector (Tampilkan Gambar/Stiker)")
-        print(" [0] Keluar Dari Program")
-        print('=' * 45)
+    try:
+        while True:
+            os.system('cls' if os.name == 'nt' else 'clear')
 
-        pilihan = input("Masukan Pilihan Anda: ").strip()
+            print('\n' + '=' * 45)
+            print("🖐 PROGRAM FINGER TRACKING PYTHON 🖐")
+            print('=' * 45)
+            print("Pilih fitur yang ingin dijalankan:")
+            print(" [1] Basic Finger Tracking (Landmark jari saja)")
+            print(" [2] Gesture Detector (Tampilkan Gambar/Stiker)")
+            print(" [3] Finger Count (Menghitung jari)")
+            print(" [0] Keluar Dari Program")
+            print('=' * 45)
 
-        if pilihan == '1':
-            run_camera(mode='1')
-        elif pilihan == '2':
-            run_camera(mode='2')
-        elif pilihan == '0':
-            print('\nTerimakasih telah mengunakan program ini! Sampai Jumpa 🖐')
-            sys.exit()
-        else:
-            print('\n[!] Pilihan tidak valid. Silahkan masukan angka yang valid.')
+            pilihan = input("Masukan Pilihan Anda: ").strip()
+
+            if pilihan == '1':
+                run_camera(mode='1')
+            elif pilihan == '2':
+                run_camera(mode='2')
+            elif pilihan == '3':
+                run_camera(mode='3')
+            elif pilihan == '0':
+                os.system('cls' if os.name == 'nt' else 'clear')
+                print('\nTerimakasih telah mengunakan program ini! Sampai Jumpa 🖐')
+                sys.exit()
+            else:
+                os.system('cls' if os.name == 'nt' else 'clear')
+                print('\n[!] Pilihan tidak valid. Silahkan masukan angka yang valid.')
+    except KeyboardInterrupt:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print('\nTerimakasih telah mengunakan program ini! Sampai Jumpa 🖐')
+        sys.exit()
 
 if __name__ == "__main__":
     main_menu()
