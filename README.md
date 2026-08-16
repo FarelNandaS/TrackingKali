@@ -1,4 +1,4 @@
-# 🖐️ Real-Time Hand Tracking with Gesture Recognition
+# 🖐️ TrackingKali
 
 Aplikasi *Computer Vision* sederhana berbasis Python untuk mendeteksi dan melacak gerakan jari tangan secara *real-time*.
 
