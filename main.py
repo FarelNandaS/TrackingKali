@@ -1,10 +1,12 @@
+import sys
 import time
 import cv2
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-img_peace = cv2.imread('peace.png')
+img_peace = cv2.imread('img/peace.png')
+img_angry = cv2.imread('img/angry.png')
 
 base_options = python.BaseOptions(model_asset_path='hand_landmarker.task')
 options = vision.HandLandmarkerOptions(
@@ -51,11 +53,11 @@ def check_open_finger(landmarks):
 
     return status
 
-def draw_landmarks_custom(frame, detection_result):
+def mode_besic_image(frame, detection_result):
     if not detection_result.hand_landmarks:
         return frame
 
-    h, w, _ = frame.shape
+    h, w, _= frame.shape
 
     for hand_landmarks in detection_result.hand_landmarks:
         pixel_points = []
@@ -63,49 +65,89 @@ def draw_landmarks_custom(frame, detection_result):
             px = int(landmark.x * w)
             py = int(landmark.y * h)
             pixel_points.append((px, py))
-
+        
             cv2.circle(frame, (px, py), 5, (0, 255, 0), cv2.FILLED)
-
+        
         for connection in HANDS_CONNECTIONS:
             start_idx = connection[0]
             end_idx = connection[1]
             cv2.line(frame, pixel_points[start_idx], pixel_points[end_idx], (255, 0, 0,), 2)
 
-        finger_status = check_open_finger(hand_landmarks)
+    return frame
 
-        wrist_x, wrist_y = pixel_points[0]
+def mode_gesture_image(frame, detection_result):
+    frame = mode_besic_image(frame, detection_result)
+
+    if not detection_result.hand_landmarks:
+        return frame
+
+    h, w, _ = frame.shape
+
+    for hand_landmarks in detection_result.hand_landmarks:
+        finger_status = check_open_finger(hand_landmarks)
 
         if finger_status == [1, 1, 0, 0]:
             frame = place_image_direct(frame, img_peace, 20, 20)
+        elif finger_status == [0, 0, 0, 0]:
+            frame = place_image_direct(frame, img_angry, 20, 20)
 
     return frame
 
+def run_camera(mode):
+    cap = cv2.VideoCapture(0)
 
-cap = cv2.VideoCapture(0)
+    with vision.HandLandmarker.create_from_options(options) as detector:
+        while cap.isOpened():
+            success, frame = cap.read()
+            if not success:
+                print('Kamera Tidak Ditemukan')
+                break
 
-with vision.HandLandmarker.create_from_options(options) as detector:
-    while cap.isOpened():
-        success, frame = cap.read()
-        if not success:
-            print('Kamera Tidak Ditemukan')
-            break
+            frame = cv2.flip(frame, 1)
 
-        frame = cv2.flip(frame, 1)
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
 
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+            # timestamp_ms = int(cap.get(cv2.CAP_PROP_POS_MSEC))
+            timestamp_ms = int(time.time() * 1000)
 
-        # timestamp_ms = int(cap.get(cv2.CAP_PROP_POS_MSEC))
-        timestamp_ms = int(time.time() * 1000)
+            detection_result = detector.detect_for_video(mp_image, timestamp_ms)
 
-        detection_result = detector.detect_for_video(mp_image, timestamp_ms)
+            if mode == '1':
+                frame = mode_besic_image(frame, detection_result)
+            elif mode == '2':
+                frame = mode_gesture_image(frame, detection_result)
 
-        frame = draw_landmarks_custom(frame, detection_result)
+            cv2.imshow("Finger Tracker", frame)
 
-        cv2.imshow("Finger Tracker", frame)
+            if cv2.waitKey(2) & 0xff == ord('q'):
+                break
 
-        if cv2.waitKey(2) & 0xff == ord('q'):
-            break
+    cap.release()
+    cv2.destroyAllWindows()
 
-cap.release()
-cv2.destroyAllWindows()
+def main_menu():
+    while True:
+        print('\n' + '=' * 45)
+        print("🖐 PROGRAM FINGER TRACKING PYTHON 🖐")
+        print('=' * 45)
+        print("Pilih fitur yang ingin dijalankan:")
+        print(" [1] Basic Finger Tracking (Landmark jari saja)")
+        print(" [2] Gesture Detector (Tampilkan Gambar/Stiker)")
+        print(" [0] Keluar Dari Program")
+        print('=' * 45)
+
+        pilihan = input("Masukan Pilihan Anda: ").strip()
+
+        if pilihan == '1':
+            run_camera(mode='1')
+        elif pilihan == '2':
+            run_camera(mode='2')
+        elif pilihan == '0':
+            print('\nTerimakasih telah mengunakan program ini! Sampai Jumpa 🖐')
+            sys.exit()
+        else:
+            print('\n[!] Pilihan tidak valid. Silahkan masukan angka yang valid.')
+
+if __name__ == "__main__":
+    main_menu()
