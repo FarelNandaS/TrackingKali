@@ -2,6 +2,7 @@ import sys
 import os
 import time
 import cv2
+import numpy as np
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
@@ -50,7 +51,7 @@ def place_image_direct(backround, overlay, x, y, size=(150, 150)):
     backround[y1:y2, x1:x2] = overlay_resized
     return backround
 
-def check_open_finger(landmarks, hand_label):
+def check_open_finger(landmarks, hand_label = None):
     status = []
 
     tips_ids = [8, 12, 16, 20]
@@ -140,6 +141,49 @@ def mode_count_finger(frame, detection_result):
 
     return frame
 
+canvas = None
+prev_x, prev_y = 0, 0
+
+def mode_air_canvas(frame, detection_result):
+    global canvas, prev_x, prev_y
+
+    h, w, c = frame.shape
+
+    if canvas is None or canvas.shape != frame.shape:
+        canvas = np.zeros((h, w, c), dtype=np.uint8)
+
+    frame = mode_besic_image(frame, detection_result)
+
+    if detection_result.hand_landmarks:
+        for hand_landmarks in detection_result.hand_landmarks:
+            finger_status = check_open_finger(hand_landmarks)
+
+            curr_x = int(hand_landmarks[8].x * w)
+            curr_y = int(hand_landmarks[8].y * h)
+
+            if finger_status == [1, 0, 0, 0]:
+                cv2.circle(frame, (curr_x, curr_y), 8, (0, 0, 255), cv2.FILLED)
+
+                if prev_x == 0 and prev_y == 0:
+                    prev_x, prev_y = curr_x, curr_y
+
+                cv2.line(canvas, (prev_x, prev_y), (curr_x, curr_y), (0, 0, 255), 5)
+                prev_x, prev_y = curr_x, curr_y
+            elif finger_status == [1, 1, 1, 1]:
+                canvas = np.zeros((h, w, c), dtype=np.uint8)
+                prev_x, prev_y = 0, 0
+            else:
+                prev_x, prev_y = 0, 0
+
+    else:
+        prev_x, prev_y = 0, 0
+
+    frame = cv2.addWeighted(frame, 1, canvas, 0.8, 0)
+
+    cv2.putText(frame, "Angkat Telunjuk: Gambar | Buka Semua Jari: Hapus", (10, 30), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 255, 255), 1)
+
+    return frame
+
 def run_camera(mode):
     cap = cv2.VideoCapture(0)
 
@@ -168,6 +212,8 @@ def run_camera(mode):
                 frame = mode_gesture_image(frame, detection_result)
             elif mode == '3':
                 frame = mode_count_finger(frame, detection_result)
+            elif mode == '4':
+                frame = mode_air_canvas(frame, detection_result)
 
             cv2.imshow("Finger Tracker", frame)
 
@@ -189,6 +235,7 @@ def main_menu():
                 "[cyan] [1] Basic Finger Tracking (Landmark jari saja)[/cyan] \n"
                 "[cyan] [2] Gesture Detector (Tampilkan Gambar/Stiker)[/cyan] \n"
                 "[cyan] [3] Finger Count (Menghitung jari)[/cyan] \n"
+                "[cyan] [4] Mengambar (Mengambar Dengan Jari)[/cyan] \n"
                 "[cyan] [0] Keluar Dari Program[/cyan] \n"
             )
 
@@ -202,6 +249,8 @@ def main_menu():
                 run_camera(mode='2')
             elif pilihan == '3':
                 run_camera(mode='3')
+            elif pilihan == '4':
+                run_camera(mode='4')
             elif pilihan == '0':
                 os.system('cls' if os.name == 'nt' else 'clear')
                 console.print('\n[bold green]Terimakasih telah mengunakan program ini! Sampai Jumpa 🖐[/bold green]')
